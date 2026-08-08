@@ -188,6 +188,9 @@ public class ChaoxingApi {
     }
 
     // ============ 活动检测 ============
+    /** 本会话已签过的活动(签到页标记): 检测时跳过, 支持同课多活动逐个签 */
+    public static final java.util.Set<String> signedActivityIds = new java.util.HashSet<>();
+
     public SignActivity checkActivity(String courseId, String classId) throws Exception {
         String url = BASE + "/v2/apis/active/student/activelist?fid=0&courseId=" + courseId
                 + "&classId=" + classId + "&_=" + System.currentTimeMillis();
@@ -197,20 +200,26 @@ public class ChaoxingApi {
         JSONArray list = data.optJSONArray("activeList");
         if (list == null || list.length() == 0) return null;
 
-        JSONObject a = list.getJSONObject(0);
-        int otherId = a.optInt("otherId", -1);
-        int status = a.optInt("status", -1);
-        if (status != 1 || otherId < 0 || otherId > 5) return null;
-        long startTime = a.optLong("startTime", 0);
-        if (System.currentTimeMillis() - startTime > 7200_000L) return null; // 开始超2小时忽略
+        // 遍历找进行中的活动(activelist 可能同课多个活动, 不能只取第一个)
+        for (int i = 0; i < list.length(); i++) {
+            JSONObject a = list.getJSONObject(i);
+            int otherId = a.optInt("otherId", -1);
+            int status = a.optInt("status", -1);
+            if (status != 1 || otherId < 0 || otherId > 5) continue;
+            long startTime = a.optLong("startTime", 0);
+            if (System.currentTimeMillis() - startTime > 7200_000L) continue; // 开始超2小时忽略
+            String actId = String.valueOf(a.optLong("id", 0));
+            if (signedActivityIds.contains(actId)) continue; // 已签过则看下一个活动
 
-        SignActivity act = new SignActivity();
-        act.activeId = String.valueOf(a.optLong("id", 0));
-        act.name = a.optString("nameOne", "");
-        act.otherId = otherId;
-        act.courseId = courseId;
-        act.classId = classId;
-        return act;
+            SignActivity act = new SignActivity();
+            act.activeId = actId;
+            act.name = a.optString("nameOne", "");
+            act.otherId = otherId;
+            act.courseId = courseId;
+            act.classId = classId;
+            return act;
+        }
+        return null;
     }
 
     // ============ 预签到 ============

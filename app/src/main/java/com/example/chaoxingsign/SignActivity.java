@@ -171,10 +171,11 @@ public class SignActivity extends AppCompatActivity {
                 boolean already = finalMsg.contains("已签到");
                 tvResult.setText(ok ? "✅ 签到成功!" : finalMsg);
                 if (ok || already) {
-                    // 签到完成: 按钮置灰"已签到", 防重复签; 标记课程已签(列表徽标变灰)
+                    // 签到完成: 按钮置灰"已签到", 防重复签; 标记课程已签(列表徽标变灰) + 活动已签(多活动切换)
                     btnSign.setText("已签到");
                     btnSign.setEnabled(false);
                     MainActivity.signedCourses.add(act.courseId);
+                    ChaoxingApi.signedActivityIds.add(act.activeId);
                 } else {
                     btnSign.setEnabled(true); // 失败可重试
                 }
