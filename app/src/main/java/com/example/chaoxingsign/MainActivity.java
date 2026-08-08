@@ -30,6 +30,9 @@ import java.util.List;
  */
 public class MainActivity extends AppCompatActivity {
 
+    /** 本机已签过的课程(签到页标记): 徽标变灰"已签到", 不再置顶 */
+    public static final java.util.Set<String> signedCourses = new java.util.HashSet<>();
+
     private EditText etPhone, etPassword;
     private TextView tvStatus, tvMonitor, tvEmpty;
     private Button btnLogin;
@@ -153,19 +156,24 @@ public class MainActivity extends AppCompatActivity {
         if (scanning) return; // 上一次扫描未完成则跳过
         scanning = true;
         new Thread(() -> {
-            int found = 0;
+            int found = 0; // 未签的活动数
             for (ChaoxingApi.Course c : courses) {
                 try {
+                    c.signed = signedCourses.contains(c.courseId);
                     c.hasActivity = ChaoxingApi.instance.checkActivity(
                             c.courseId, c.classId) != null;
-                    if (c.hasActivity) found++;
+                    if (c.hasActivity && !c.signed) found++; // 仅未签的活动算"有签到"
                 } catch (Exception ignored) {
                     c.hasActivity = false;
                 }
             }
-            // 有签到的课程置顶(稳定排序: 有活动在前, 其余保持原顺序)
+            // 排序: 未签的活动课置顶, 已签/无活动保持原顺序
             List<ChaoxingApi.Course> sorted = new java.util.ArrayList<>(courses);
-            sorted.sort((a, b) -> Boolean.compare(b.hasActivity, a.hasActivity));
+            sorted.sort((a, b) -> {
+                boolean ua = a.hasActivity && !a.signed;
+                boolean ub = b.hasActivity && !b.signed;
+                return Boolean.compare(ub, ua);
+            });
             int finalFound = found;
             scanning = false;
             runOnUiThread(() -> {

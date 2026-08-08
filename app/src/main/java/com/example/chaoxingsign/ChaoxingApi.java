@@ -47,7 +47,8 @@ public class ChaoxingApi {
     // ============ 数据类 ============
     public static class Course {
         public String courseId, classId, chatid, courseName, className;
-        public boolean hasActivity; // 是否有进行中的签到(加载时扫描标记, 用于高亮置顶)
+        public boolean hasActivity; // 是否有进行中的签到(加载时扫描标记)
+        public boolean signed;      // 本机已签过(签到页标记, 用于徽标/置顶复原)
     }
 
     public static class SignActivity implements java.io.Serializable {

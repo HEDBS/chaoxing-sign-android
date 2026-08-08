@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 已签到徽标背景: 灰色圆角, 表示该课已签过(活动仍在但无需再签) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#9E9E9E" />
+    <corners android:radius="10dp" />
+</shape>
