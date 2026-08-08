@@ -58,6 +58,9 @@ public class SettingsActivity extends AppCompatActivity {
         etDelaySeconds = findViewById(R.id.etDelaySeconds);
         etInsuranceSeconds = findViewById(R.id.etInsuranceSeconds);
 
+        // 返回主页面
+        findViewById(R.id.btnBack).setOnClickListener(v -> finish());
+
         // 显示当前账号
         ChaoxingApi api = ChaoxingApi.instance;
         tvAccount.setText(api == null ? "未登录"
@@ -92,6 +95,22 @@ public class SettingsActivity extends AppCompatActivity {
             }
         });
 
+        // 延时/保险互斥(两者只能开一个, 与监听服务逻辑一致) + 即时保存
+        swDelay.setOnCheckedChangeListener((btn, checked) -> {
+            if (checked && swInsurance.isChecked()) {
+                swInsurance.setChecked(false); // 互斥: 开延时自动关保险
+            }
+            saveDelay();
+        });
+        swInsurance.setOnCheckedChangeListener((btn, checked) -> {
+            if (checked && swDelay.isChecked()) {
+                swDelay.setChecked(false); // 互斥: 开保险自动关延时
+            }
+            saveInsurance();
+        });
+        etDelaySeconds.addTextChangedListener(new SaveWatcher(() -> saveDelay()));
+        etInsuranceSeconds.addTextChangedListener(new SaveWatcher(() -> saveInsurance()));
+
         // 切换账号: 停监听 + 清登录态 -> 回主页面重新登录
         findViewById(R.id.btnSwitchAccount).setOnClickListener(v -> {
             SignMonitorService.stop(this);
@@ -99,25 +118,38 @@ public class SettingsActivity extends AppCompatActivity {
             Toast.makeText(this, "已退出, 请重新登录", Toast.LENGTH_SHORT).show();
             finish();
         });
-
-        // 保存设置
-        findViewById(R.id.btnSave).setOnClickListener(v -> save());
     }
 
-    private void save() {
-        SharedPreferences.Editor ed = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit();
-        ed.putBoolean(KEY_DELAY_ENABLED, swDelay.isChecked());
-        int delay = parseOr(etDelaySeconds, 30);
-        ed.putInt(KEY_DELAY_SECONDS, delay);
-        ed.putBoolean(KEY_INSURANCE_ENABLED, swInsurance.isChecked());
-        int insurance = parseOr(etInsuranceSeconds, 60);
-        ed.putInt(KEY_INSURANCE_SECONDS, insurance);
-        ed.apply();
+    /** 文本变化监听: 输入框内容变化后保存(避免每次按键都写盘, 延迟处理) */
+    private static class SaveWatcher implements android.text.TextWatcher {
+        private final Runnable action;
+        SaveWatcher(Runnable action) { this.action = action; }
+        @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
+        @Override public void onTextChanged(CharSequence s, int a, int b, int c) {
+            action.run();
+        }
+        @Override public void afterTextChanged(android.text.Editable s) { }
+    }
 
-        TextView tvSaved = findViewById(R.id.tvSaved);
-        tvSaved.setText("已保存: 延时" + (swDelay.isChecked() ? delay + "s" : "关")
-                + " | 保险" + (swInsurance.isChecked() ? insurance + "s" : "关"));
-        Toast.makeText(this, "设置已保存", Toast.LENGTH_SHORT).show();
+    private void saveDelay() {
+        getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
+                .putBoolean(KEY_DELAY_ENABLED, swDelay.isChecked())
+                .putInt(KEY_DELAY_SECONDS, parseOr(etDelaySeconds, 30))
+                .apply();
+    }
+
+    private void saveInsurance() {
+        getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
+                .putBoolean(KEY_INSURANCE_ENABLED, swInsurance.isChecked())
+                .putInt(KEY_INSURANCE_SECONDS, parseOr(etInsuranceSeconds, 60))
+                .apply();
+    }
+
+    /** 监听开关状态与主页面同步(从设置页返回时刷新) */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        swMonitor.setChecked(isServiceRunning(SignMonitorService.class));
     }
 
     private int parseOr(EditText et, int def) {

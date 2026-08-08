@@ -40,10 +40,22 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="24dp"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="12dp"
         android:layout_marginEnd="24dp"
         android:text="未登录"
         android:textSize="14sp" />
+
+    <!-- 监听状态条: 后台监听是否在运行 -->
+    <TextView
+        android:id="@+id/tvMonitor"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="24dp"
+        android:text="监听已关闭"
+        android:textSize="13sp"
+        android:textColor="#FF6B6B" />
 
     <!-- 登录表单区: 登录成功后隐藏 -->
     <LinearLayout
@@ -87,6 +99,17 @@
         android:layout_height="0dp"
         android:layout_marginTop="8dp"
         android:layout_weight="1"
+        android:visibility="gone" />
+
+    <!-- 空列表提示: 课程为空时显示 -->
+    <TextView
+        android:id="@+id/tvEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text="暂无课程"
+        android:textSize="15sp"
         android:visibility="gone" />
 
 </LinearLayout>

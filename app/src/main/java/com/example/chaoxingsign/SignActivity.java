@@ -60,11 +60,13 @@ public class SignActivity extends AppCompatActivity {
         String courseId = getIntent().getStringExtra("courseId");
         String classId = getIntent().getStringExtra("classId");
         String courseName = getIntent().getStringExtra("courseName");
-        tvCourseName.setText(courseName);
+        tvCourseName.setText(courseName == null ? "" : courseName);
 
+        // 登录态防护: 会话过期时回主页面重新登录, 避免空指针崩溃
         api = ChaoxingApi.instance;
         if (api == null) {
-            tvActivity.setText("未登录, 请返回重新登录");
+            tvActivity.setText("登录已过期, 请返回重新登录");
+            btnSign.setEnabled(false);
             return;
         }
 

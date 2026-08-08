@@ -50,6 +50,14 @@ public class CourseAdapter extends RecyclerView.Adapter<CourseAdapter.CourseHold
         ChaoxingApi.Course c = courses.get(position);
         holder.tvName.setText(c.courseName);
         holder.tvClass.setText(c.className);
+        // 有进行中签到的课程: 高亮背景 + 橙色"有签到"徽标
+        if (c.hasActivity) {
+            holder.itemView.setBackgroundColor(0x1AFF7043); // 浅橙背景
+            holder.tvBadge.setVisibility(View.VISIBLE);
+        } else {
+            holder.itemView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+            holder.tvBadge.setVisibility(View.GONE);
+        }
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) listener.onCourseClick(courses.get(position));
         });
@@ -62,12 +70,13 @@ public class CourseAdapter extends RecyclerView.Adapter<CourseAdapter.CourseHold
 
     /** 一项的缓存容器: 持有这一项里的所有控件引用 */
     static class CourseHolder extends RecyclerView.ViewHolder {
-        final TextView tvName, tvClass;
+        final TextView tvName, tvClass, tvBadge;
 
         CourseHolder(@NonNull View itemView) {
             super(itemView);
             tvName = itemView.findViewById(R.id.tvCourseName);
             tvClass = itemView.findViewById(R.id.tvClassName);
+            tvBadge = itemView.findViewById(R.id.tvBadge);
         }
     }
 }

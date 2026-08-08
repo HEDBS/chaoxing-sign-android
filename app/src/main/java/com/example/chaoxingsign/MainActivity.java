@@ -31,7 +31,7 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
 
     private EditText etPhone, etPassword;
-    private TextView tvStatus;
+    private TextView tvStatus, tvMonitor, tvEmpty;
     private Button btnLogin;
     private LinearLayout loginPanel;
     private RecyclerView rvCourses;
@@ -53,6 +53,8 @@ public class MainActivity extends AppCompatActivity {
         etPhone = findViewById(R.id.etPhone);
         etPassword = findViewById(R.id.etPassword);
         tvStatus = findViewById(R.id.tvStatus);
+        tvMonitor = findViewById(R.id.tvMonitor);
+        tvEmpty = findViewById(R.id.tvEmpty);
         btnLogin = findViewById(R.id.btnLogin);
         loginPanel = findViewById(R.id.loginPanel);
         rvCourses = findViewById(R.id.rvCourses);
@@ -97,7 +99,7 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 tvStatus.setText(finalStatus);
                 if (finalCourses != null) {
-                    showCourses(finalCourses);
+                    detectAndShow(finalCourses);
                 } else {
                     ChaoxingApi.clearSession(this); // 会话失效, 回登录页
                     loginPanel.setVisibility(View.VISIBLE);
@@ -109,9 +111,15 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
-    /** 显示课程列表(登录成功后) */
+    /** 显示课程列表(登录成功后), 课程为空时显示空状态提示 */
     private void showCourses(List<ChaoxingApi.Course> courses) {
         loginPanel.setVisibility(View.GONE);
+        if (courses == null || courses.isEmpty()) {
+            rvCourses.setVisibility(View.GONE);
+            tvEmpty.setVisibility(View.VISIBLE);
+            return;
+        }
+        tvEmpty.setVisibility(View.GONE);
         rvCourses.setVisibility(View.VISIBLE);
         courseAdapter = new CourseAdapter(courses);
         courseAdapter.setOnCourseClickListener(course -> {
@@ -124,15 +132,68 @@ public class MainActivity extends AppCompatActivity {
         rvCourses.setAdapter(courseAdapter);
     }
 
-    /** 从设置页返回: 若已切换账号(instance 被清), 恢复登录表单 */
+    /**
+     * 扫描每门课的活动状态: 有进行中签到的课程标记 + 置顶显示
+     * 后台线程执行(27 门课约 2-3 秒), 完成后回主线程显示
+     */
+    private void detectAndShow(List<ChaoxingApi.Course> courses) {
+        tvStatus.setText("检测签到状态中...");
+        new Thread(() -> {
+            int found = 0;
+            for (ChaoxingApi.Course c : courses) {
+                try {
+                    c.hasActivity = ChaoxingApi.instance.checkActivity(
+                            c.courseId, c.classId) != null;
+                    if (c.hasActivity) found++;
+                } catch (Exception ignored) {
+                    c.hasActivity = false;
+                }
+            }
+            // 有签到的课程置顶(稳定排序: 有活动在前, 其余保持原顺序)
+            List<ChaoxingApi.Course> sorted = new java.util.ArrayList<>(courses);
+            sorted.sort((a, b) -> Boolean.compare(b.hasActivity, a.hasActivity));
+            int finalFound = found;
+            runOnUiThread(() -> {
+                tvStatus.setText("登录成功: " + ChaoxingApi.instance.getUserName()
+                        + "，共 " + courses.size() + " 门课"
+                        + (finalFound > 0 ? " · " + finalFound + " 门有签到" : ""));
+                showCourses(sorted);
+            });
+        }).start();
+    }
+
+    /** 从设置页返回: 若已切换账号(instance 被清), 恢复登录表单; 并刷新监听状态 */
     @Override
     protected void onResume() {
         super.onResume();
+        refreshMonitorStatus();
         if (ChaoxingApi.instance == null && rvCourses.getVisibility() == View.VISIBLE) {
             loginPanel.setVisibility(View.VISIBLE);
             rvCourses.setVisibility(View.GONE);
             tvStatus.setText("未登录");
             btnLogin.setEnabled(true);
+        }
+    }
+
+    /** 监听状态条: 后台服务运行中 -> 绿色提示, 否则灰色提示 */
+    private void refreshMonitorStatus() {
+        boolean running = false;
+        android.app.ActivityManager am = (android.app.ActivityManager)
+                getSystemService(ACTIVITY_SERVICE);
+        if (am != null) {
+            for (android.app.ActivityManager.RunningServiceInfo info : am.getRunningServices(100)) {
+                if (SignMonitorService.class.getName().equals(info.service.getClassName())) {
+                    running = true;
+                    break;
+                }
+            }
+        }
+        if (running) {
+            tvMonitor.setText("📡 监听中 · 每 60 秒检测签到");
+            tvMonitor.setTextColor(0xFF2E7D32);
+        } else {
+            tvMonitor.setText("🔕 监听已关闭 · 可在设置中开启");
+            tvMonitor.setTextColor(0xFF9E9E9E);
         }
     }
 
@@ -177,7 +238,7 @@ public class MainActivity extends AppCompatActivity {
                         // 登录成功: 隐藏登录表单, 显示课程列表
                         loginPanel.setVisibility(View.GONE);
                         rvCourses.setVisibility(View.VISIBLE);
-                        showCourses(finalCourses);
+                        detectAndShow(finalCourses);
                     } else {
                         btnLogin.setEnabled(true); // 登录失败可重试
                     }
