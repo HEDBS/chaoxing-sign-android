@@ -35,6 +35,17 @@ public class CourseAdapter extends RecyclerView.Adapter<CourseAdapter.CourseHold
         this.listener = l;
     }
 
+    /** 刷新数据(活动状态变化后: 高亮/置顶复原) */
+    public void update(List<ChaoxingApi.Course> newList) {
+        courses.clear();
+        courses.addAll(newList);
+        notifyDataSetChanged();
+    }
+
+    public List<ChaoxingApi.Course> getCourses() {
+        return courses;
+    }
+
     /** 创建一项的 View 容器 (滚动时按需创建, 会被复用) */
     @NonNull
     @Override

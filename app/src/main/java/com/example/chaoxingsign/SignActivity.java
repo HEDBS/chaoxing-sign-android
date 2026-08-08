@@ -127,9 +127,16 @@ public class SignActivity extends AppCompatActivity {
             String finalMsg = msg;
             runOnUiThread(() -> {
                 // 服务端返回 success 即签到成功, 转成友好中文提示
-                tvResult.setText("success".equals(finalMsg.trim())
-                        ? "✅ 签到成功!" : finalMsg);
-                btnSign.setEnabled(true);
+                boolean ok = "success".equals(finalMsg.trim());
+                boolean already = finalMsg.contains("已签到");
+                tvResult.setText(ok ? "✅ 签到成功!" : finalMsg);
+                if (ok || already) {
+                    // 签到完成: 按钮置灰"已签到", 防止重复签
+                    btnSign.setText("已签到");
+                    btnSign.setEnabled(false);
+                } else {
+                    btnSign.setEnabled(true); // 失败可重试
+                }
             });
         }).start();
     }

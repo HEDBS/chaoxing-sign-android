@@ -134,10 +134,24 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * 扫描每门课的活动状态: 有进行中签到的课程标记 + 置顶显示
-     * 后台线程执行(27 门课约 2-3 秒), 完成后回主线程显示
+     * 后台线程执行(27 门课约 2-3 秒), 完成后回主线程更新 UI
      */
     private void detectAndShow(List<ChaoxingApi.Course> courses) {
         tvStatus.setText("检测签到状态中...");
+        scanAndRefresh(courses, true);
+    }
+
+    /** 刷新活动状态(从签到页返回/活动结束后, 高亮与置顶自动复原) */
+    private void refreshActivities() {
+        if (courseAdapter == null || rvCourses.getVisibility() != View.VISIBLE) return;
+        scanAndRefresh(courseAdapter.getCourses(), false);
+    }
+
+    private volatile boolean scanning = false; // 防并发扫描
+
+    private void scanAndRefresh(List<ChaoxingApi.Course> courses, boolean firstTime) {
+        if (scanning) return; // 上一次扫描未完成则跳过
+        scanning = true;
         new Thread(() -> {
             int found = 0;
             for (ChaoxingApi.Course c : courses) {
@@ -153,11 +167,16 @@ public class MainActivity extends AppCompatActivity {
             List<ChaoxingApi.Course> sorted = new java.util.ArrayList<>(courses);
             sorted.sort((a, b) -> Boolean.compare(b.hasActivity, a.hasActivity));
             int finalFound = found;
+            scanning = false;
             runOnUiThread(() -> {
                 tvStatus.setText("登录成功: " + ChaoxingApi.instance.getUserName()
                         + "，共 " + courses.size() + " 门课"
                         + (finalFound > 0 ? " · " + finalFound + " 门有签到" : ""));
-                showCourses(sorted);
+                if (firstTime) {
+                    showCourses(sorted);
+                } else {
+                    courseAdapter.update(sorted); // 高亮/置顶随活动状态复原
+                }
             });
         }).start();
     }
@@ -172,6 +191,9 @@ public class MainActivity extends AppCompatActivity {
             rvCourses.setVisibility(View.GONE);
             tvStatus.setText("未登录");
             btnLogin.setEnabled(true);
+        } else {
+            // 签到返回/活动结束: 刷新活动状态, 高亮与置顶自动复原
+            refreshActivities();
         }
     }
 
