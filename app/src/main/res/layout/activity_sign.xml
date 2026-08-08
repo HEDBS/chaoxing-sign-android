@@ -77,6 +77,16 @@
                 android:text=""
                 android:textSize="12sp"
                 android:textColor="#888888" />
+
+            <Button
+                android:id="@+id/btnResetGesture"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="8dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="24dp"
+                android:text="重画" />
         </LinearLayout>
 
         <!-- 参数区: 签到码输入(签到码类型专用) -->

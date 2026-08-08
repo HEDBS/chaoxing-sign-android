@@ -114,6 +114,36 @@ public class GestureView extends View {
         return 0;
     }
 
+    /** 两点线段穿过的中间点(如 1->9 穿过 5, 3->7 穿过 5), 无则返回 0 */
+    private int middlePoint(int a, int b) {
+        int[] pa = points.get(a - 1), pb = points.get(b - 1);
+        for (int i = 0; i < points.size(); i++) {
+            int m = i + 1;
+            if (m == a || m == b) continue;
+            if (isBetween(pa, pb, points.get(i))) return m;
+        }
+        return 0;
+    }
+
+    /** 点 m 是否在线段 a-b 上(共线且位于两点之间) */
+    private boolean isBetween(int[] a, int[] b, int[] m) {
+        int cross = (b[0] - a[0]) * (m[1] - a[1]) - (b[1] - a[1]) * (m[0] - a[0]);
+        if (cross != 0) return false; // 不共线
+        int dot = (m[0] - a[0]) * (m[0] - b[0]) + (m[1] - a[1]) * (m[1] - b[1]);
+        return dot < 0; // 位于 a、b 之间
+    }
+
+    /** 记录新点: 若与上一点连线穿过未选中间点, 自动先加入中间点 */
+    private void addPoint(int p) {
+        if (path.contains(p)) return;
+        if (!path.isEmpty()) {
+            int last = path.get(path.size() - 1);
+            int mid = middlePoint(last, p);
+            if (mid != 0 && !path.contains(mid)) path.add(mid); // 自动包含(如1->9选5)
+        }
+        path.add(p);
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         float x = event.getX(), y = event.getY();
@@ -124,16 +154,14 @@ public class GestureView extends View {
                 curX = x;
                 curY = y;
                 int p = hitPoint(x, y);
-                if (p != 0 && !path.contains(p)) path.add(p);
+                if (p != 0) addPoint(p);
                 invalidate();
                 return true;
             case MotionEvent.ACTION_MOVE:
                 curX = x;
                 curY = y;
                 int q = hitPoint(x, y);
-                if (q != 0 && !path.contains(q)) {
-                    path.add(q); // 滑过新点则加入路径
-                }
+                if (q != 0) addPoint(q); // 滑过新点(含自动包含中间点)则加入路径
                 invalidate();
                 return true;
             case MotionEvent.ACTION_UP:

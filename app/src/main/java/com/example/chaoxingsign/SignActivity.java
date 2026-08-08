@@ -65,6 +65,12 @@ public class SignActivity extends AppCompatActivity {
             gestureCode = code;
             tvGestureCode.setText("手势: " + code);
         });
+        // 重画: 清空画板与编码
+        findViewById(R.id.btnResetGesture).setOnClickListener(v -> {
+            gestureCode = "";
+            tvGestureCode.setText("");
+            gestureView.clear();
+        });
 
         // 返回课程列表
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
