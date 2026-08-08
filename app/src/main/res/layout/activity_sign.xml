@@ -55,6 +55,7 @@
             android:visibility="gone">
 
             <TextView
+                android:id="@+id/tvCodeLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="签到码 / 手势码"
@@ -64,7 +65,9 @@
                 android:id="@+id/etCode"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="输入老师公布的码"
+                android:hint="输入老师公布的码（数字）"
+                android:imeOptions="actionDone"
+                android:inputType="number"
                 android:maxLines="1" />
         </LinearLayout>
 

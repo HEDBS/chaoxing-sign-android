@@ -20,7 +20,7 @@ import androidx.core.view.WindowInsetsCompat;
  */
 public class SignActivity extends AppCompatActivity {
 
-    private TextView tvCourseName, tvActivity, tvResult;
+    private TextView tvCourseName, tvActivity, tvResult, tvCodeLabel;
     private LinearLayout panelCode, panelLocation, panelQrcode;
     private EditText etCode, etLat, etLon, etAddress, etEnc;
     private Button btnSign;
@@ -44,6 +44,7 @@ public class SignActivity extends AppCompatActivity {
         tvCourseName = findViewById(R.id.tvCourseName);
         tvActivity = findViewById(R.id.tvActivity);
         tvResult = findViewById(R.id.tvResult);
+        tvCodeLabel = findViewById(R.id.tvCodeLabel);
         panelCode = findViewById(R.id.panelCode);
         panelLocation = findViewById(R.id.panelLocation);
         panelQrcode = findViewById(R.id.panelQrcode);
@@ -71,6 +72,14 @@ public class SignActivity extends AppCompatActivity {
         }
 
         btnSign.setOnClickListener(v -> doSign());
+        // 输入框回车(IME 完成键)直接签到, 减少一次点击
+        etCode.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                doSign();
+                return true;
+            }
+            return false;
+        });
 
         // 后台检测活动
         new Thread(() -> {
@@ -95,9 +104,16 @@ public class SignActivity extends AppCompatActivity {
 
     /** 按活动类型显示对应的参数输入区 */
     private void setupParams(int otherId) {
-        panelCode.setVisibility(otherId == 3 || otherId == 5 ? View.VISIBLE : View.GONE);
+        boolean isCode = otherId == 3 || otherId == 5;
+        panelCode.setVisibility(isCode ? View.VISIBLE : View.GONE);
         panelLocation.setVisibility(otherId == 4 ? View.VISIBLE : View.GONE);
         panelQrcode.setVisibility(otherId == 2 ? View.VISIBLE : View.GONE);
+
+        // 手势/签到码: 动态标签 + 自动聚焦数字键盘
+        if (isCode) {
+            tvCodeLabel.setText(otherId == 3 ? "手势码" : "签到码");
+            etCode.requestFocus();
+        }
     }
 
     private static String typeName(int otherId) {
