@@ -19,8 +19,10 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 监听服务(前台): 每 60 秒轮询全部课程, 检测到签到自动处理
- *  - 普通/拍照: 按设置延时签到 / 立即签, 保险模式下超时未确认自动签
+ * 监听服务(前台): 每 60 秒轮询全部课程, 检测到签到按模式处理
+ *  - 确认模式(默认): 通知提醒 -> 用户点"确认签到"才签
+ *  - 延时模式(开关): 检测到后等 N 秒自动签(无需确认)
+ *  - 保险(开关, 仅确认模式): 通知后超时未确认自动签兜底
  *  - 手势/签到码/位置/二维码: 通知用户点开签到页手动签
  *
  * 设置: 设置页的延时/保险项; 需登录态 (ChaoxingApi.instance)
@@ -28,6 +30,7 @@ import java.util.Set;
 public class SignMonitorService extends Service {
 
     public static final String ACTION_STOP = "com.example.chaoxingsign.STOP";
+    public static final String ACTION_CONFIRM = "com.example.chaoxingsign.CONFIRM";
     private static final String CHANNEL_ID = "monitor_channel";
     private static final int NOTIF_MONITOR = 1; // 常驻前台通知
     private static final int NOTIF_ALERT = 2;   // 签到提醒通知
@@ -37,7 +40,8 @@ public class SignMonitorService extends Service {
     private volatile boolean running = false; // 轮询线程开关
     private ChaoxingApi api;
     private List<ChaoxingApi.Course> courses;
-    private final Set<String> handled = new HashSet<>(); // 已处理活动, 去重
+    private final Set<String> handled = new HashSet<>();  // 已通知的活动, 去重
+    private final Set<String> confirmed = new HashSet<>(); // 用户已确认签过的活动
 
     private boolean delayEnabled, insuranceEnabled;
     private int delaySeconds, insuranceSeconds;
@@ -98,11 +102,14 @@ public class SignMonitorService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
-        if (intent != null && intent.getBooleanExtra("sign_now", false)) {
-            // 通知按钮"立即签到"
+        if (intent != null && ACTION_CONFIRM.equals(intent.getAction())) {
+            // 通知按钮"确认签到": 标记已确认并执行签到
             ChaoxingApi.SignActivity act = (ChaoxingApi.SignActivity)
                     intent.getSerializableExtra("act");
-            if (act != null) autoSign(act);
+            if (act != null) {
+                confirmed.add(act.activeId);
+                autoSign(act);
+            }
         }
         return START_STICKY;
     }
@@ -146,19 +153,31 @@ public class SignMonitorService extends Service {
         android.util.Log.d("SignMonitor", "本轮完成 ok=" + ok + " fail=" + fail);
     }
 
-    /** 按活动类型处理: 可自动签(普通/拍照)走延时/保险; 需参数类型通知手动 */
+    /**
+     * 按活动类型处理:
+     *  - 延时模式(开关): 延时 N 秒后自动签(无需确认), 通知提示
+     *  - 确认模式(默认): 通知"确认签到", 用户确认才签; 保险开启时超时未确认自动签
+     *  - 需参数类型(手势/签到码/位置/二维码): 通知前往签到页手动签
+     */
     private void handleActivity(ChaoxingApi.SignActivity act) {
         if (act.otherId == 0) {
             if (delayEnabled) {
+                // 延时自动模式
                 notifyAlert(act, "检测到签到: " + act.name,
                         delaySeconds + " 秒后自动签到", true);
                 handler.postDelayed(() -> autoSign(act), delaySeconds * 1000L);
-            } else if (insuranceEnabled) {
-                notifyAlert(act, "检测到签到: " + act.name,
-                        "点击确认, " + insuranceSeconds + " 秒未确认将自动签", true);
-                handler.postDelayed(() -> autoSign(act), insuranceSeconds * 1000L);
             } else {
-                autoSign(act); // 立即签
+                // 确认模式(默认): 通知确认才签
+                notifyConfirm(act);
+                if (insuranceEnabled) {
+                    // 保险: 超时未确认 -> 自动签兜底
+                    handler.postDelayed(() -> {
+                        if (!confirmed.contains(act.activeId)) {
+                            android.util.Log.d("SignMonitor", "保险触发: 超时未确认自动签 " + act.name);
+                            autoSign(act);
+                        }
+                    }, insuranceSeconds * 1000L);
+                }
             }
         } else {
             notifyManual(act);
@@ -209,7 +228,36 @@ public class SignMonitorService extends Service {
                 .build();
     }
 
-    /** 可自动签提醒: 点击打开签到页确认, 带"立即签到"动作 */
+    /** 确认模式通知: 点击"确认签到"按钮才执行签到 */
+    private void notifyConfirm(ChaoxingApi.SignActivity act) {
+        Intent open = new Intent(this, SignActivity.class);
+        open.putExtra("courseId", act.courseId);
+        open.putExtra("classId", act.classId);
+        open.putExtra("courseName", act.name);
+        PendingIntent pi = PendingIntent.getActivity(this, (int) System.currentTimeMillis(),
+                open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
+        // "确认签到"动作 -> 服务执行签到
+        Intent confirm = new Intent(this, SignMonitorService.class);
+        confirm.setAction(ACTION_CONFIRM);
+        confirm.putExtra("act", act);
+        PendingIntent cpi = PendingIntent.getService(this, (int) System.currentTimeMillis(),
+                confirm, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
+        String text = insuranceEnabled
+                ? "点击确认签到 · " + insuranceSeconds + " 秒未确认将自动签"
+                : "点击确认签到";
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_menu_agenda)
+                .setContentTitle("检测到签到: " + act.name)
+                .setContentText(text)
+                .setContentIntent(pi)
+                .setAutoCancel(true)
+                .addAction(0, "确认签到", cpi);
+        getSystemService(NotificationManager.class).notify(NOTIF_ALERT, b.build());
+    }
+
+    /** 可自动签提醒(延时模式): 带"立即签到"动作 */
     private void notifyAlert(ChaoxingApi.SignActivity act, String title, String text, boolean withAction) {
         Intent open = new Intent(this, SignActivity.class);
         open.putExtra("courseId", act.courseId);
