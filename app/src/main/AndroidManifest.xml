@@ -35,6 +35,10 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".LocationPickerActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".SettingsActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

@@ -154,6 +154,13 @@
                 android:layout_marginTop="8dp"
                 android:hint="详细地址"
                 android:maxLines="1" />
+
+            <Button
+                android:id="@+id/btnPickLocation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="🗺️ 地图选点" />
         </LinearLayout>
 
         <!-- 参数区: 二维码 enc -->

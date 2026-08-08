@@ -71,6 +71,9 @@ public class SignActivity extends AppCompatActivity {
             tvGestureCode.setText("");
             gestureView.clear();
         });
+        // 地图选点: 打开选点页, 返回坐标+地址自动回填
+        findViewById(R.id.btnPickLocation).setOnClickListener(v ->
+                startActivityForResult(new android.content.Intent(this, LocationPickerActivity.class), 1001));
 
         // 返回课程列表
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
@@ -137,6 +140,18 @@ public class SignActivity extends AppCompatActivity {
             gestureCode = "";
             tvGestureCode.setText("");
             gestureView.clear();
+        }
+    }
+
+    /** 地图选点返回: 坐标+地址回填 */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 1001 && resultCode == RESULT_OK) {
+            etLat.setText(data.getStringExtra("lat"));
+            etLon.setText(data.getStringExtra("lon"));
+            etAddress.setText(data.getStringExtra("address"));
+            tvResult.setText("已从地图选择位置");
         }
     }
 
