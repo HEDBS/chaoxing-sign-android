@@ -78,7 +78,7 @@ public class SettingsActivity extends AppCompatActivity {
         swInsurance.setChecked(insuranceOn);
         etInsuranceSeconds.setText(String.valueOf(insuranceSec));
 
-        // 监听开关: 启动/停止前台服务
+        // 监听开关: 启动/停止前台服务; 保险仅在监听模式下可用
         swMonitor.setOnCheckedChangeListener((btn, checked) -> {
             if (ChaoxingApi.instance == null) {
                 Toast.makeText(this, "请先登录再开启监听", Toast.LENGTH_SHORT).show();
@@ -93,6 +93,7 @@ public class SettingsActivity extends AppCompatActivity {
                 SignMonitorService.stop(this);
                 Toast.makeText(this, "监听已关闭", Toast.LENGTH_SHORT).show();
             }
+            updateInsuranceEnabled(checked); // 保险可用性跟随监听状态
         });
 
         // 延时/保险互斥(两者只能开一个, 与监听服务逻辑一致) + 即时保存
@@ -110,6 +111,9 @@ public class SettingsActivity extends AppCompatActivity {
         });
         etDelaySeconds.addTextChangedListener(new SaveWatcher(() -> saveDelay()));
         etInsuranceSeconds.addTextChangedListener(new SaveWatcher(() -> saveInsurance()));
+
+        // 初始保险可用性: 跟随监听服务当前状态
+        updateInsuranceEnabled(isServiceRunning(SignMonitorService.class));
 
         // 切换账号: 停监听 + 清登录态 -> 回主页面重新登录
         findViewById(R.id.btnSwitchAccount).setOnClickListener(v -> {
@@ -145,11 +149,21 @@ public class SettingsActivity extends AppCompatActivity {
                 .apply();
     }
 
+    /** 保险可用性: 仅监听模式下可开(保险依赖监听服务轮询) */
+    private void updateInsuranceEnabled(boolean monitorOn) {
+        swInsurance.setEnabled(monitorOn);
+        etInsuranceSeconds.setEnabled(monitorOn);
+        if (!monitorOn && swInsurance.isChecked()) {
+            swInsurance.setChecked(false); // 监听关闭时保险自动关闭
+        }
+    }
+
     /** 监听开关状态与主页面同步(从设置页返回时刷新) */
     @Override
     protected void onResume() {
         super.onResume();
         swMonitor.setChecked(isServiceRunning(SignMonitorService.class));
+        updateInsuranceEnabled(isServiceRunning(SignMonitorService.class));
     }
 
     private int parseOr(EditText et, int def) {
