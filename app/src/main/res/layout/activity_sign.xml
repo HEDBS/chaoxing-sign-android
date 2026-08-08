@@ -58,7 +58,7 @@
                 android:id="@+id/tvGestureHint"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="请画出老师设置的手势"
+                android:text="请画出老师设置的手势（连线经过的中间点自动选中，画错可点重画）"
                 android:textSize="13sp" />
 
             <com.example.chaoxingsign.GestureView
@@ -102,7 +102,7 @@
                 android:id="@+id/tvCodeLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="签到码 / 手势码"
+                android:text="签到码"
                 android:textSize="13sp" />
 
             <EditText
