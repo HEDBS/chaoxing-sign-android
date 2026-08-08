@@ -101,25 +101,42 @@ public class SignActivity extends AppCompatActivity {
             return false;
         });
 
-        // 后台检测活动
-        new Thread(() -> {
-            String status;
-            try {
-                act = api.checkActivity(courseId, classId);
-                status = act == null ? "当前无进行中的签到活动"
-                        : "检测到签到: [" + typeName(act.otherId) + "] " + act.name;
-            } catch (Exception e) {
-                status = "检测出错: " + e.getMessage();
-            }
-            final String finalStatus = status;
-            runOnUiThread(() -> {
-                tvActivity.setText(finalStatus);
-                if (act != null) {
-                    setupParams(act.otherId);
-                    btnSign.setEnabled(true);
+        // 后台检测活动(或有 activeId 则直选)
+        String activeId = getIntent().getStringExtra("activeId");
+        if (activeId != null && !activeId.isEmpty()) {
+            // 从列表弹窗选择: 直接用传入的活动信息
+            int otherId = getIntent().getIntExtra("otherId", -1);
+            String actName = getIntent().getStringExtra("actName");
+            act = new ChaoxingApi.SignActivity();
+            act.activeId = activeId;
+            act.otherId = otherId;
+            act.name = actName != null ? actName : "";
+            act.courseId = courseId;
+            act.classId = classId;
+            tvActivity.setText("检测到签到: [" + ChaoxingApi.typeName(otherId) + "] " + act.name);
+            setupParams(otherId);
+            btnSign.setEnabled(true);
+        } else {
+            // 传统路径: 后台检测活动
+            new Thread(() -> {
+                String status;
+                try {
+                    act = api.checkActivity(courseId, classId, courseName);
+                    status = act == null ? "当前无进行中的签到活动"
+                            : "检测到签到: [" + ChaoxingApi.typeName(act.otherId) + "] " + act.name;
+                } catch (Exception e) {
+                    status = "检测出错: " + e.getMessage();
                 }
-            });
-        }).start();
+                final String finalStatus = status;
+                runOnUiThread(() -> {
+                    tvActivity.setText(finalStatus);
+                    if (act != null) {
+                        setupParams(act.otherId);
+                        btnSign.setEnabled(true);
+                    }
+                });
+            }).start();
+        }
     }
 
     /** 按活动类型显示对应的参数输入区 */
@@ -141,6 +158,23 @@ public class SignActivity extends AppCompatActivity {
             tvGestureCode.setText("");
             gestureView.clear();
         }
+        // 位置: 从设置页加载默认位置自动预填(仅在字段为空时, 不覆盖地图选点/手动输入)
+        if (otherId == 4) {
+            if (etLat.getText().toString().trim().isEmpty()
+                    && etLon.getText().toString().trim().isEmpty()
+                    && etAddress.getText().toString().trim().isEmpty()) {
+                android.content.SharedPreferences sp = getSharedPreferences(
+                        SettingsActivity.PREF_NAME, MODE_PRIVATE);
+                String defLat = sp.getString(SettingsActivity.KEY_DEFAULT_LAT, "");
+                String defLon = sp.getString(SettingsActivity.KEY_DEFAULT_LON, "");
+                String defAddr = sp.getString(SettingsActivity.KEY_DEFAULT_ADDRESS, "");
+                if (!defLat.isEmpty() || !defLon.isEmpty()) {
+                    etLat.setText(defLat);
+                    etLon.setText(defLon);
+                    etAddress.setText(defAddr);
+                }
+            }
+        }
     }
 
     /** 地图选点返回: 坐标+地址回填 */
@@ -152,17 +186,6 @@ public class SignActivity extends AppCompatActivity {
             etLon.setText(data.getStringExtra("lon"));
             etAddress.setText(data.getStringExtra("address"));
             tvResult.setText("已从地图选择位置");
-        }
-    }
-
-    private static String typeName(int otherId) {
-        switch (otherId) {
-            case 0: return "普通/拍照";
-            case 2: return "二维码";
-            case 3: return "手势";
-            case 4: return "位置";
-            case 5: return "签到码";
-            default: return "未知";
         }
     }
 
@@ -226,7 +249,13 @@ public class SignActivity extends AppCompatActivity {
             case 2: // 二维码
                 String enc = etEnc.getText().toString().trim();
                 if (enc.isEmpty()) return "请输入二维码 enc";
-                return api.signQrcode(act, enc, "34.817", "113.516", "河南科技大学");
+                // 使用设置页的默认位置, 不再硬编码
+                android.content.SharedPreferences sp = getSharedPreferences(
+                        SettingsActivity.PREF_NAME, MODE_PRIVATE);
+                String qrLat = sp.getString(SettingsActivity.KEY_DEFAULT_LAT, "34.817");
+                String qrLon = sp.getString(SettingsActivity.KEY_DEFAULT_LON, "113.516");
+                String qrAddr = sp.getString(SettingsActivity.KEY_DEFAULT_ADDRESS, "河南科技大学");
+                return api.signQrcode(act, enc, qrLat, qrLon, qrAddr);
             default:
                 return "不支持的签到类型";
         }

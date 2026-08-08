@@ -52,8 +52,10 @@ public class ChaoxingApi {
     }
 
     public static class SignActivity implements java.io.Serializable {
-        public String activeId, name, courseId, classId;
+        public String activeId, name, courseId, classId, courseName;
         public int otherId; // 0=普通/拍照 2=二维码 3=手势 4=位置 5=签到码
+        public long startTime; // 活动开始时间戳
+        public boolean signed; // 本会话是否已签过
         @Override
         public String toString() {
             return "[" + name + "] activeId=" + activeId + " otherId=" + otherId;
@@ -74,6 +76,18 @@ public class ChaoxingApi {
     public String getUserName() { return userName; }
     public String getUid() { return uid; }
     public String getPhone() { return phone; }
+
+    /** 签到类型名称 */
+    public static String typeName(int otherId) {
+        switch (otherId) {
+            case 0: return "普通/拍照";
+            case 2: return "二维码";
+            case 3: return "手势";
+            case 4: return "位置";
+            case 5: return "签到码";
+            default: return "未知";
+        }
+    }
 
     // ============ 会话持久化 (SharedPreferences) ============
     private static final String SESSION_PREF = "session";
@@ -191,7 +205,46 @@ public class ChaoxingApi {
     /** 本会话已签过的活动(签到页标记): 检测时跳过, 支持同课多活动逐个签 */
     public static final java.util.Set<String> signedActivityIds = new java.util.HashSet<>();
 
-    public SignActivity checkActivity(String courseId, String classId) throws Exception {
+    /** 获取同课所有进行中的活动列表(含已签, 前端用于多活动弹窗展示时间和签过状态) */
+    public List<SignActivity> getActiveActivities(String courseId, String classId, String courseName) throws Exception {
+        String url = BASE + "/v2/apis/active/student/activelist?fid=0&courseId=" + courseId
+                + "&classId=" + classId + "&_=" + System.currentTimeMillis();
+        JSONObject root = new JSONObject(get(url, true));
+        JSONObject data = root.optJSONObject("data");
+        if (data == null) return java.util.Collections.emptyList();
+        JSONArray list = data.optJSONArray("activeList");
+        if (list == null || list.length() == 0) return java.util.Collections.emptyList();
+
+        List<SignActivity> result = new ArrayList<>();
+        for (int i = 0; i < list.length(); i++) {
+            JSONObject a = list.getJSONObject(i);
+            int otherId = a.optInt("otherId", -1);
+            int status = a.optInt("status", -1);
+            if (status != 1 || otherId < 0 || otherId > 5) continue;
+            long startTime = a.optLong("startTime", 0);
+            if (System.currentTimeMillis() - startTime > 7200_000L) continue;
+            String actId = String.valueOf(a.optLong("id", 0));
+
+            SignActivity act = new SignActivity();
+            act.activeId = actId;
+            act.name = a.optString("nameOne", "");
+            act.otherId = otherId;
+            act.courseId = courseId;
+            act.classId = classId;
+            act.courseName = courseName;
+            act.startTime = startTime;
+            act.signed = signedActivityIds.contains(actId);
+            result.add(act);
+        }
+        // 未签的排前面, 同一个组内按时间倒序
+        java.util.Collections.sort(result, (a, b) -> {
+            if (a.signed != b.signed) return a.signed ? 1 : -1;
+            return Long.compare(b.startTime, a.startTime);
+        });
+        return result;
+    }
+
+    public SignActivity checkActivity(String courseId, String classId, String courseName) throws Exception {
         String url = BASE + "/v2/apis/active/student/activelist?fid=0&courseId=" + courseId
                 + "&classId=" + classId + "&_=" + System.currentTimeMillis();
         JSONObject root = new JSONObject(get(url, true));
@@ -217,6 +270,7 @@ public class ChaoxingApi {
             act.otherId = otherId;
             act.courseId = courseId;
             act.classId = classId;
+            act.courseName = courseName;
             return act;
         }
         return null;

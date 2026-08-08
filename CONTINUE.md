@@ -47,13 +47,30 @@ cd E:\Hermes\ChaoxingSign; .\gradlew.bat :app:assembleDebug :app:lintDebug --con
 
 ## 5. 未完成任务（按优先级）
 
-1. **位置签到实测**：选点页在模拟器打开着，用户手动点地图选点→确定→回填→签到（活动 3000166639147 已过期 03:22，需重新发一个）
-2. **P1 虚拟位置默认值**：设置页存默认坐标（地图选点选默认位置），位置签到自动预填——用户已同意方向
+1. **位置签到实测**：⚠️ 默认坐标(公安街26号)距目标1898m，需地图选点精确定位光明水岸。P1 默认预填已通过
+2. ~~**P1 虚拟位置默认值**~~ ✅ 已完成（2026-08-09）
 3. **P2 相册传图拍照签到**：云盘上传协议逆向（pan-yz.chaoxing.com，最大壁垒，未开工）
 4. **Release APK 签名打包** + **真机测试**
 5. **README 更新**（画板/地图选点新功能截图）
-6. **监听开关状态持久化**（重启 App 自动恢复监听）
+6. ~~**监听开关状态持久化**~~ ✅ 已完成（2026-08-09）：SP 存 `monitor_enabled`，重启自动恢复监听服务
 7. 手势编码/协议逆向文档沉淀
+
+## 5b. 本次会话新增功能（2026-08-09）
+
+| 功能 | 文件 | 说明 |
+|---|---|---|
+| P1 虚拟位置默认值 | activity_settings.xml + SettingsActivity.java + SignActivity.java | 设置页默认位置（🗺️ 地图选点 + 手动输入）→ 即时持久化 → 位置签到自动预填 |
+| 多活动二级菜单 | ChaoxingApi.java + MainActivity.java + SignActivity.java | getActiveActivities() 返回列表 → 1个直进 / 多个 AlertDialog 弹窗选 → 签到页 activeId 直选 |
+| signedCourses 修复 | MainActivity.java | 有新活动时清除课程级已签标记（同课多活动场景） |
+
+## 5c. 本次实测结果
+
+| 签到类型 | 结果 | 详情 |
+|---|---|---|
+| 签到码 (1234) | ✅ 全链路 | 输入→checkSignCode→stuSignajax→success→去重"您已签到过了" |
+| 手势签到 (Z形) | ✅ 全链路 | 弹窗选→画板1235789→checkSignCode→success→去重 |
+| 位置签到 | ⚠️ 坐标不准 | P1预填✅ 活动检测✅ 多活动弹窗✅ 签到距目标1898m |
+| 多活动弹窗 | ✅ | 4活动同课：AlertDialog列出 [手势][签到码][位置][手势]→点击直进签到页 |
 
 ## 6. 验证脚本（C:\Users\lenovo\AppData\Local\Temp\）
 

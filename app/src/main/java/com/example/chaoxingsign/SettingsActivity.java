@@ -32,12 +32,18 @@ public class SettingsActivity extends AppCompatActivity {
     public static final String KEY_DELAY_SECONDS = "delay_seconds";
     public static final String KEY_INSURANCE_ENABLED = "insurance_enabled";
     public static final String KEY_INSURANCE_SECONDS = "insurance_seconds";
+    public static final String KEY_DEFAULT_LAT = "default_lat";
+    public static final String KEY_DEFAULT_LON = "default_lon";
+    public static final String KEY_DEFAULT_ADDRESS = "default_address";
+    public static final String KEY_MONITOR_ENABLED = "monitor_enabled";
 
     private static final int REQ_NOTIFY = 100;
+    private static final int REQ_PICK_DEFAULT_LOCATION = 200;
 
     private TextView tvAccount;
     private SwitchCompat swMonitor, swDelay, swInsurance;
     private EditText etDelaySeconds, etInsuranceSeconds;
+    private EditText etDefaultLat, etDefaultLon, etDefaultAddress;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,6 +63,9 @@ public class SettingsActivity extends AppCompatActivity {
         swInsurance = findViewById(R.id.swInsurance);
         etDelaySeconds = findViewById(R.id.etDelaySeconds);
         etInsuranceSeconds = findViewById(R.id.etInsuranceSeconds);
+        etDefaultLat = findViewById(R.id.etDefaultLat);
+        etDefaultLon = findViewById(R.id.etDefaultLon);
+        etDefaultAddress = findViewById(R.id.etDefaultAddress);
 
         // 返回主页面
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
@@ -78,6 +87,11 @@ public class SettingsActivity extends AppCompatActivity {
         swInsurance.setChecked(insuranceOn);
         etInsuranceSeconds.setText(String.valueOf(insuranceSec));
 
+        // 加载默认位置
+        etDefaultLat.setText(sp.getString(KEY_DEFAULT_LAT, ""));
+        etDefaultLon.setText(sp.getString(KEY_DEFAULT_LON, ""));
+        etDefaultAddress.setText(sp.getString(KEY_DEFAULT_ADDRESS, ""));
+
         // 监听开关: 启动/停止前台服务; 保险仅在监听模式下可用
         swMonitor.setOnCheckedChangeListener((btn, checked) -> {
             if (ChaoxingApi.instance == null) {
@@ -88,9 +102,11 @@ public class SettingsActivity extends AppCompatActivity {
             if (checked) {
                 requestNotifyPermission();
                 SignMonitorService.start(this);
+                sp.edit().putBoolean(KEY_MONITOR_ENABLED, true).apply();
                 Toast.makeText(this, "监听已开启", Toast.LENGTH_SHORT).show();
             } else {
                 SignMonitorService.stop(this);
+                sp.edit().putBoolean(KEY_MONITOR_ENABLED, false).apply();
                 Toast.makeText(this, "监听已关闭", Toast.LENGTH_SHORT).show();
             }
             updateInsuranceEnabled(checked); // 保险可用性跟随监听状态
@@ -122,6 +138,16 @@ public class SettingsActivity extends AppCompatActivity {
             Toast.makeText(this, "已退出, 请重新登录", Toast.LENGTH_SHORT).show();
             finish();
         });
+
+        // 地图选点设默认位置: 复用 LocationPickerActivity
+        findViewById(R.id.btnPickDefaultLocation).setOnClickListener(v ->
+                startActivityForResult(new android.content.Intent(this, LocationPickerActivity.class),
+                        REQ_PICK_DEFAULT_LOCATION));
+
+        // 默认位置输入框: 即时保存(与延时/保险一致)
+        etDefaultLat.addTextChangedListener(new SaveWatcher(() -> saveDefaultLocation()));
+        etDefaultLon.addTextChangedListener(new SaveWatcher(() -> saveDefaultLocation()));
+        etDefaultAddress.addTextChangedListener(new SaveWatcher(() -> saveDefaultLocation()));
     }
 
     /** 文本变化监听: 输入框内容变化后保存(避免每次按键都写盘, 延迟处理) */
@@ -149,6 +175,14 @@ public class SettingsActivity extends AppCompatActivity {
                 .apply();
     }
 
+    private void saveDefaultLocation() {
+        getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
+                .putString(KEY_DEFAULT_LAT, etDefaultLat.getText().toString().trim())
+                .putString(KEY_DEFAULT_LON, etDefaultLon.getText().toString().trim())
+                .putString(KEY_DEFAULT_ADDRESS, etDefaultAddress.getText().toString().trim())
+                .apply();
+    }
+
     /** 保险可用性: 仅监听模式下可开(保险依赖监听服务轮询) */
     private void updateInsuranceEnabled(boolean monitorOn) {
         swInsurance.setEnabled(monitorOn);
@@ -164,6 +198,19 @@ public class SettingsActivity extends AppCompatActivity {
         super.onResume();
         swMonitor.setChecked(isServiceRunning(SignMonitorService.class));
         updateInsuranceEnabled(isServiceRunning(SignMonitorService.class));
+    }
+
+    /** 地图选点返回: 设置默认位置 + 即时保存 */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_PICK_DEFAULT_LOCATION && resultCode == RESULT_OK) {
+            etDefaultLat.setText(data.getStringExtra("lat"));
+            etDefaultLon.setText(data.getStringExtra("lon"));
+            etDefaultAddress.setText(data.getStringExtra("address"));
+            saveDefaultLocation(); // 即时写盘, 不依赖 TextWatcher(可能同一内容不触发)
+            Toast.makeText(this, "默认位置已更新", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private int parseOr(EditText et, int def) {

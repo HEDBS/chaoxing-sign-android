@@ -2,6 +2,7 @@ package com.example.chaoxingsign;
 
 import android.Manifest;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -126,13 +127,68 @@ public class MainActivity extends AppCompatActivity {
         rvCourses.setVisibility(View.VISIBLE);
         courseAdapter = new CourseAdapter(courses);
         courseAdapter.setOnCourseClickListener(course -> {
-            Intent intent = new Intent(MainActivity.this, SignActivity.class);
-            intent.putExtra("courseId", course.courseId);
-            intent.putExtra("classId", course.classId);
-            intent.putExtra("courseName", course.courseName);
-            startActivity(intent);
+            // 先检测活动数量: 多个则弹窗选, 一个直进, 无则提示
+            new Thread(() -> {
+                try {
+                    java.util.List<ChaoxingApi.SignActivity> acts =
+                            ChaoxingApi.instance.getActiveActivities(course.courseId, course.classId, course.courseName);
+                    int count = acts == null ? 0 : acts.size();
+                    runOnUiThread(() -> {
+                        if (count == 0) {
+                            Toast.makeText(MainActivity.this, "当前无进行中的签到活动", Toast.LENGTH_SHORT).show();
+                        } else {
+                            showActivityPicker(acts, course.courseName);
+                        }
+                    });
+                } catch (Exception e) {
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                            "检测失败: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                }
+            }).start();
         });
         rvCourses.setAdapter(courseAdapter);
+    }
+
+    /** 直接打开签到页(单个活动) */
+    private void openSignActivity(ChaoxingApi.SignActivity act, String courseName) {
+        Intent intent = new Intent(MainActivity.this, SignActivity.class);
+        intent.putExtra("activeId", act.activeId);
+        intent.putExtra("otherId", act.otherId);
+        intent.putExtra("actName", act.name);
+        intent.putExtra("courseId", act.courseId);
+        intent.putExtra("classId", act.classId);
+        intent.putExtra("courseName", courseName);
+        startActivity(intent);
+    }
+
+    /** 多活动选择对话框: 列出所有进行中活动(含已签)供用户选择 */
+    private void showActivityPicker(java.util.List<ChaoxingApi.SignActivity> acts, String courseName) {
+        String[] items = new String[acts.size()];
+        for (int i = 0; i < acts.size(); i++) {
+            ChaoxingApi.SignActivity a = acts.get(i);
+            String time = formatTime(a.startTime);
+            String status = a.signed ? " ✅ 已签" : "";
+            String sid = a.activeId.length() > 4 ? a.activeId.substring(a.activeId.length() - 4) : a.activeId;
+            items[i] = "[" + ChaoxingApi.typeName(a.otherId) + "] " + a.name + " · " + time + " #" + sid + status;
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(courseName + " · 选择签到活动")
+                .setItems(items, (dialog, which) -> {
+                    ChaoxingApi.SignActivity a = acts.get(which);
+                    if (a.signed) {
+                        Toast.makeText(this, "该活动已签过", Toast.LENGTH_SHORT).show();
+                    } else {
+                        openSignActivity(a, courseName);
+                    }
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+    private static String formatTime(long ts) {
+        if (ts == 0) return "--:--";
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault());
+        return sdf.format(new java.util.Date(ts));
     }
 
     /**
@@ -159,9 +215,10 @@ public class MainActivity extends AppCompatActivity {
             int found = 0; // 未签的活动数
             for (ChaoxingApi.Course c : courses) {
                 try {
-                    c.signed = signedCourses.contains(c.courseId);
                     c.hasActivity = ChaoxingApi.instance.checkActivity(
-                            c.courseId, c.classId) != null;
+                            c.courseId, c.classId, c.courseName) != null;
+                    // 有未签活动则清除已签标记(同课多活动场景)
+                    c.signed = !c.hasActivity && signedCourses.contains(c.courseId);
                     if (c.hasActivity && !c.signed) found++; // 仅未签的活动算"有签到"
                 } catch (Exception ignored) {
                     c.hasActivity = false;
@@ -222,6 +279,14 @@ public class MainActivity extends AppCompatActivity {
             tvMonitor.setText("📡 监听中 · 每 60 秒检测签到");
             tvMonitor.setTextColor(0xFF2E7D32);
         } else {
+            // 检查是否之前开启过监听(持久化), 自动恢复
+            SharedPreferences sp = getSharedPreferences(SettingsActivity.PREF_NAME, MODE_PRIVATE);
+            if (sp.getBoolean(SettingsActivity.KEY_MONITOR_ENABLED, false) && ChaoxingApi.instance != null) {
+                SignMonitorService.start(this);
+                tvMonitor.setText("📡 监听中 · 每 60 秒检测签到");
+                tvMonitor.setTextColor(0xFF2E7D32);
+                return;
+            }
             tvMonitor.setText("🔕 监听已关闭 · 可在设置中开启");
             tvMonitor.setTextColor(0xFF9E9E9E);
         }

@@ -166,6 +166,48 @@
             android:inputType="number"
             android:maxLines="1" />
 
+        <!-- 默认位置 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="默认位置（位置签到时自动预填）"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/etDefaultLat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="默认纬度 (如 34.817)"
+            android:inputType="numberDecimal"
+            android:maxLines="1" />
+
+        <EditText
+            android:id="@+id/etDefaultLon"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="默认经度 (如 113.516)"
+            android:inputType="numberDecimal"
+            android:maxLines="1" />
+
+        <EditText
+            android:id="@+id/etDefaultAddress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="默认地址 (如 河南科技大学)"
+            android:maxLines="1" />
+
+        <Button
+            android:id="@+id/btnPickDefaultLocation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="🗺️ 地图选点设默认位置" />
+
         <Button
             android:id="@+id/btnSave"
             android:layout_width="match_parent"
