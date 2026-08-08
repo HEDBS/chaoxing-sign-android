@@ -20,10 +20,12 @@ import androidx.core.view.WindowInsetsCompat;
  */
 public class SignActivity extends AppCompatActivity {
 
-    private TextView tvCourseName, tvActivity, tvResult, tvCodeLabel;
-    private LinearLayout panelCode, panelLocation, panelQrcode;
+    private TextView tvCourseName, tvActivity, tvResult, tvCodeLabel, tvGestureCode;
+    private LinearLayout panelCode, panelLocation, panelQrcode, panelGesture;
     private EditText etCode, etLat, etLon, etAddress, etEnc;
+    private GestureView gestureView;
     private Button btnSign;
+    private String gestureCode = ""; // 画板手势编码(手势签到用)
 
     private ChaoxingApi api;
     private ChaoxingApi.SignActivity act; // 当前检测到的活动
@@ -48,12 +50,21 @@ public class SignActivity extends AppCompatActivity {
         panelCode = findViewById(R.id.panelCode);
         panelLocation = findViewById(R.id.panelLocation);
         panelQrcode = findViewById(R.id.panelQrcode);
+        panelGesture = findViewById(R.id.panelGesture);
         etCode = findViewById(R.id.etCode);
         etLat = findViewById(R.id.etLat);
         etLon = findViewById(R.id.etLon);
         etAddress = findViewById(R.id.etAddress);
         etEnc = findViewById(R.id.etEnc);
+        gestureView = findViewById(R.id.gestureView);
+        tvGestureCode = findViewById(R.id.tvGestureCode);
         btnSign = findViewById(R.id.btnSign);
+
+        // 画板手势完成: 记录编码, 显示给用户确认
+        gestureView.setOnGestureListener(code -> {
+            gestureCode = code;
+            tvGestureCode.setText("手势: " + code);
+        });
 
         // 返回课程列表
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
@@ -104,15 +115,22 @@ public class SignActivity extends AppCompatActivity {
 
     /** 按活动类型显示对应的参数输入区 */
     private void setupParams(int otherId) {
-        boolean isCode = otherId == 3 || otherId == 5;
+        boolean isCode = otherId == 5;        // 签到码: 数字输入
+        boolean isGesture = otherId == 3;     // 手势: 九宫格画板
         panelCode.setVisibility(isCode ? View.VISIBLE : View.GONE);
+        panelGesture.setVisibility(isGesture ? View.VISIBLE : View.GONE);
         panelLocation.setVisibility(otherId == 4 ? View.VISIBLE : View.GONE);
         panelQrcode.setVisibility(otherId == 2 ? View.VISIBLE : View.GONE);
 
-        // 手势/签到码: 动态标签 + 自动聚焦数字键盘
+        // 签到码: 自动聚焦数字键盘
         if (isCode) {
-            tvCodeLabel.setText(otherId == 3 ? "手势码" : "签到码");
             etCode.requestFocus();
+        }
+        // 手势画板: 重置
+        if (isGesture) {
+            gestureCode = "";
+            tvGestureCode.setText("");
+            gestureView.clear();
         }
     }
 
@@ -168,9 +186,12 @@ public class SignActivity extends AppCompatActivity {
                     return api.signPhoto(act, oid);
                 }
                 return api.signGeneral(act);
-            case 3: case 5: // 手势/签到码
+            case 3: // 手势(画板)
+                if (gestureCode.isEmpty()) return "请在九宫格上画出老师的手势";
+                return api.signWithCode(act, gestureCode);
+            case 5: // 签到码
                 String code = etCode.getText().toString().trim();
-                if (code.isEmpty()) return "请输入签到码/手势码";
+                if (code.isEmpty()) return "请输入签到码";
                 return api.signWithCode(act, code);
             case 4: // 位置
                 String lat = etLat.getText().toString().trim();

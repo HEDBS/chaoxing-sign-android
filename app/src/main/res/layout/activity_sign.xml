@@ -45,7 +45,41 @@
             android:text="检测中..."
             android:textSize="15sp" />
 
-        <!-- 参数区: 手势/签到码 -->
+        <!-- 参数区: 手势画板(手势签到专用) -->
+        <LinearLayout
+            android:id="@+id/panelGesture"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tvGestureHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="请画出老师设置的手势"
+                android:textSize="13sp" />
+
+            <com.example.chaoxingsign.GestureView
+                android:id="@+id/gestureView"
+                android:layout_width="260dp"
+                android:layout_height="260dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="8dp" />
+
+            <TextView
+                android:id="@+id/tvGestureCode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="4dp"
+                android:text=""
+                android:textSize="12sp"
+                android:textColor="#888888" />
+        </LinearLayout>
+
+        <!-- 参数区: 签到码输入(签到码类型专用) -->
         <LinearLayout
             android:id="@+id/panelCode"
             android:layout_width="match_parent"
