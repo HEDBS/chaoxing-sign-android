@@ -310,12 +310,15 @@ public class ChaoxingApi {
         String url = BASE + "/pptSign/stuSignajax?activeId=" + act.activeId + "&uid=" + uid
                 + "&clientip=&latitude=&longitude=&appType=15&fid=" + fid
                 + "&name=" + enc(userName) + "&signCode=" + enc(signCode);
-        // 附加默认位置(手势/签到码老师可能开位置校验)
+        // 附加默认位置(手势/签到码老师可能开位置校验; 实测需 location JSON 格式)
         if (lat != null && lon != null && !lat.isEmpty() && !lon.isEmpty()) {
+            String loc = "{\"result\":\"1\",\"address\":\"" + (address == null ? "" : address)
+                    + "\",\"latitude\":" + lat + ",\"longitude\":" + lon + ",\"altitude\":100}";
             url = BASE + "/pptSign/stuSignajax?name=" + enc(userName)
                     + "&address=" + (address == null ? "" : enc(address))
                     + "&activeId=" + act.activeId + "&uid=" + uid
-                    + "&clientip=&latitude=" + lat + "&longitude=" + lon
+                    + "&clientip=&location=" + enc(loc)
+                    + "&latitude=" + lat + "&longitude=" + lon
                     + "&fid=" + fid + "&appType=15&ifTiJiao=1&signCode=" + enc(signCode);
         }
         return get(url, false);
