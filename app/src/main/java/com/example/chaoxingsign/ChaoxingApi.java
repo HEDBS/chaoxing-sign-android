@@ -297,8 +297,9 @@ public class ChaoxingApi {
         return get(url, false);
     }
 
-    /** 手势/签到码: 先 checkSignCode 校验, 通过后提交 */
-    public String signWithCode(SignActivity act, String signCode) throws Exception {
+    /** 手势/签到码: 先 checkSignCode 校验, 通过后提交; 可附加位置参数(老师开位置时需带) */
+    public String signWithCode(SignActivity act, String signCode,
+                               String lat, String lon, String address) throws Exception {
         String check = get("https://mobilelearn.chaoxing.com/widget/sign/pcStuSignController/"
                 + "checkSignCode?activeId=" + act.activeId + "&signCode=" + enc(signCode), false);
         JSONObject res = new JSONObject(check);
@@ -309,6 +310,14 @@ public class ChaoxingApi {
         String url = BASE + "/pptSign/stuSignajax?activeId=" + act.activeId + "&uid=" + uid
                 + "&clientip=&latitude=&longitude=&appType=15&fid=" + fid
                 + "&name=" + enc(userName) + "&signCode=" + enc(signCode);
+        // 附加默认位置(手势/签到码老师可能开位置校验)
+        if (lat != null && lon != null && !lat.isEmpty() && !lon.isEmpty()) {
+            url = BASE + "/pptSign/stuSignajax?name=" + enc(userName)
+                    + "&address=" + (address == null ? "" : enc(address))
+                    + "&activeId=" + act.activeId + "&uid=" + uid
+                    + "&clientip=&latitude=" + lat + "&longitude=" + lon
+                    + "&fid=" + fid + "&appType=15&ifTiJiao=1&signCode=" + enc(signCode);
+        }
         return get(url, false);
     }
 

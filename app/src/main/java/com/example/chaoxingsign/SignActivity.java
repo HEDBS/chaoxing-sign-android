@@ -189,6 +189,22 @@ public class SignActivity extends AppCompatActivity {
         }
     }
 
+    /** 设置页默认纬度(手势/签到码带位置时用) */
+    private String defLat() {
+        return getSharedPreferences(SettingsActivity.PREF_NAME, MODE_PRIVATE)
+                .getString(SettingsActivity.KEY_DEFAULT_LAT, "");
+    }
+
+    private String defLon() {
+        return getSharedPreferences(SettingsActivity.PREF_NAME, MODE_PRIVATE)
+                .getString(SettingsActivity.KEY_DEFAULT_LON, "");
+    }
+
+    private String defAddr() {
+        return getSharedPreferences(SettingsActivity.PREF_NAME, MODE_PRIVATE)
+                .getString(SettingsActivity.KEY_DEFAULT_ADDRESS, "");
+    }
+
     /** 按类型执行签到 (对应 Python 版 do_sign) */
     private void doSign() {
         if (act == null) return;
@@ -233,11 +249,11 @@ public class SignActivity extends AppCompatActivity {
                 return api.signGeneral(act);
             case 3: // 手势(画板)
                 if (gestureCode.isEmpty()) return "请在九宫格上画出老师的手势";
-                return api.signWithCode(act, gestureCode);
+                return api.signWithCode(act, gestureCode, defLat(), defLon(), defAddr());
             case 5: // 签到码
                 String code = etCode.getText().toString().trim();
                 if (code.isEmpty()) return "请输入签到码";
-                return api.signWithCode(act, code);
+                return api.signWithCode(act, code, defLat(), defLon(), defAddr());
             case 4: // 位置
                 String lat = etLat.getText().toString().trim();
                 String lon = etLon.getText().toString().trim();
