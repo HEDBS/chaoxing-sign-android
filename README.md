@@ -26,11 +26,13 @@
 
 ## 界面
 
-| 课程列表 | 多活动弹窗 | 手势画板 | 设置页 |
+| 课程列表 | 多活动弹窗 | 位置签到页 | 设置页 |
 |---|---|---|---|
-| 橙标置顶 + 徽标 | `[类型] · HH:mm #id ✅已签` | 九宫格 1235789 | 监听/延时/保险/默认位置 |
+| ![课程列表](docs/screenshot_courses.png) | ![多活动弹窗](docs/screenshot_dialog.png) | ![位置签到](docs/screenshot_location.png) | ![设置](docs/screenshot_settings.png) |
 
-> 截图待补充：`docs/` 目录
+| 地图选点 | 手势画板 |
+|---|---|
+| ![地图选点](docs/screenshot_picker.png) | ![手势画板](docs/screenshot_sign.png) |
 
 ## 使用
 
@@ -71,8 +73,9 @@ app/src/main/java/com/example/chaoxingsign/
 | 手势编码 | 九宫格 1-9（左上=1 横向），编码=经过点序列，对角穿中间点计入 |
 | 手势破解 | Z 形黑盒爆破 `1235789`，checkSignCode 试错安全不封号 |
 | 位置机制 | GCJ-02 坐标系，locationRange 500m，中心坐标 API 不下发 |
+| **位置坐标逆向** | **梯度搜索破解**：多组"提交坐标→服务端返回距离"做三边测量+梯度下降，命中教师坐标 `33.579216,114.055641`（实测签到 success） |
 | 多活动 | activelist 同课多活动遍历 + signedActivityIds 去重 |
-| 地图选点 | 腾讯 lbs.qq.com/getPoint/ WebView 免 SDK/key |
+| 地图选点 | 腾讯 lbs.qq.com/getPoint/ WebView 免 SDK/key；页面泄露 key `NQQBZ-...` 可直接调腾讯 suggestion API 精确定位 POI |
 
 ## 构建
 
