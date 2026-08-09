@@ -49,7 +49,7 @@ cd E:\Hermes\ChaoxingSign; .\gradlew.bat :app:assembleDebug :app:lintDebug --con
 
 1. ~~**位置签到实测**~~ ✅ 已完成（2026-08-09）：**坐标梯度搜索破解**——多组提交坐标+服务端距离反馈做三边测量+梯度下降，3 步命中教师坐标 `33.579216,114.055641`（光明水岸），实测签到 success（"您已签到过了"验证）。默认位置已更新为光明水岸
 2. ~~**P1 虚拟位置默认值**~~ ✅ 已完成（2026-08-09）
-3. **P2 相册传图拍照签到**：云盘上传协议逆向（pan-yz.chaoxing.com，最大壁垒，未开工）
+3. ~~**P2 相册传图拍照签到**~~ ✅ 已完成（2026-08-09）：**云盘上传协议逆向成功**——`pcuserpanUpload/uploadUserFile`（multipart: file+fn+fldid+_token+prdid=-1）→ objectId → signPhoto。凭据抓 `pcuserpan/upload` 页 `const _token/rootdir/currentPuid/encstr`。Android「📷 选择图片上传」+ Python `upload_file()` 双端实现；模拟器全链路实测通过（选图→上传→签到）
 4. ~~**Release APK 签名打包**~~ ✅ 已完成（2026-08-09）：release.keystore(alias=chaoxingsign) + app-release.apk 4.7MB，apksigner 验证通过
 5. **README 截图**：✅ 基础截图已补（courses/settings/dialog/location/picker），README 待附图
 6. ~~**监听开关状态持久化**~~ ✅ 已完成（2026-08-09）
