@@ -78,6 +78,18 @@
                 android:textSize="12sp"
                 android:textColor="#888888" />
 
+            <TextView
+                android:id="@+id/tvGestureLoc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="#FFF3E0"
+                android:padding="10dp"
+                android:textSize="12sp"
+                android:textColor="#E65100"
+                android:text="📍 将使用默认位置签到"
+                android:visibility="gone" />
+
             <Button
                 android:id="@+id/btnResetGesture"
                 android:layout_width="wrap_content"
@@ -113,6 +125,18 @@
                 android:imeOptions="actionDone"
                 android:inputType="number"
                 android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/tvCodeLoc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="#FFF3E0"
+                android:padding="10dp"
+                android:textSize="12sp"
+                android:textColor="#E65100"
+                android:text="📍 将使用默认位置签到"
+                android:visibility="gone" />
         </LinearLayout>
 
         <!-- 参数区: 位置 -->

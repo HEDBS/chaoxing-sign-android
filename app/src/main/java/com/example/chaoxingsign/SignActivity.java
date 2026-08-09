@@ -21,6 +21,7 @@ import androidx.core.view.WindowInsetsCompat;
 public class SignActivity extends AppCompatActivity {
 
     private TextView tvCourseName, tvActivity, tvResult, tvCodeLabel, tvGestureCode;
+    private TextView tvGestureLoc, tvCodeLoc;
     private LinearLayout panelCode, panelLocation, panelQrcode, panelGesture;
     private EditText etCode, etLat, etLon, etAddress, etEnc;
     private GestureView gestureView;
@@ -58,6 +59,8 @@ public class SignActivity extends AppCompatActivity {
         etEnc = findViewById(R.id.etEnc);
         gestureView = findViewById(R.id.gestureView);
         tvGestureCode = findViewById(R.id.tvGestureCode);
+        tvGestureLoc = findViewById(R.id.tvGestureLoc);
+        tvCodeLoc = findViewById(R.id.tvCodeLoc);
         btnSign = findViewById(R.id.btnSign);
 
         // 画板手势完成: 记录编码, 显示给用户确认
@@ -158,6 +161,19 @@ public class SignActivity extends AppCompatActivity {
             tvGestureCode.setText("");
             gestureView.clear();
         }
+        // 手势/签到码若配置了默认位置: 显示提示(带位置提交时使用)
+        String lat = defLat(), lon = defLon(), addr = defAddr();
+        String locTip = "";
+        if (!lat.isEmpty() && !lon.isEmpty()) {
+            locTip = "📍 位置已启用，将使用默认位置签到：" + (addr.isEmpty() ? lat + "," + lon : addr)
+                    + "（可在设置页修改）";
+        } else {
+            locTip = "⚠️ 本签到含位置校验，但未设置默认位置，请在设置页配置";
+        }
+        tvGestureLoc.setText(locTip);
+        tvGestureLoc.setVisibility(isGesture ? View.VISIBLE : View.GONE);
+        tvCodeLoc.setText(locTip);
+        tvCodeLoc.setVisibility(isCode ? View.VISIBLE : View.GONE);
         // 位置: 从设置页加载默认位置自动预填(仅在字段为空时, 不覆盖地图选点/手动输入)
         if (otherId == 4) {
             if (etLat.getText().toString().trim().isEmpty()
