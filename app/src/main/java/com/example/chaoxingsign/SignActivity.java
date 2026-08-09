@@ -159,11 +159,27 @@ public class SignActivity extends AppCompatActivity {
         panelGesture.setVisibility(isGesture ? View.VISIBLE : View.GONE);
         panelLocation.setVisibility(otherId == 4 ? View.VISIBLE : View.GONE);
         panelQrcode.setVisibility(otherId == 2 ? View.VISIBLE : View.GONE);
-        // 拍照签到(otherId==0 且 ifphoto): 显示选图上传按钮
-        boolean isPhoto = false;
-        try { isPhoto = otherId == 0 && api.isPhotoSign(act.activeId); }
-        catch (Exception ignored) { }
-        btnPickPhoto.setVisibility(isPhoto ? View.VISIBLE : View.GONE);
+        // 拍照签到(otherId==0 且 ifphoto): 显示选图上传按钮 (网络检查放后台线程)
+        btnPickPhoto.setVisibility(otherId == 0 ? View.VISIBLE : View.GONE);
+        if (otherId == 0) {
+            btnPickPhoto.setEnabled(false);
+            new Thread(() -> {
+                boolean isPhoto = false;
+                try { isPhoto = api.isPhotoSign(act.activeId); }
+                catch (Exception e) {
+                    android.util.Log.e("SignActivity", "isPhotoSign err: " + e.getMessage(), e);
+                }
+                final boolean fPhoto = isPhoto;
+                runOnUiThread(() -> {
+                    if (fPhoto) {
+                        btnPickPhoto.setVisibility(View.VISIBLE);
+                        btnPickPhoto.setEnabled(true);
+                    } else {
+                        btnPickPhoto.setVisibility(View.GONE); // 普通签到无拍照要求
+                    }
+                });
+            }).start();
+        }
 
         // 签到码: 自动聚焦数字键盘
         if (isCode) {
