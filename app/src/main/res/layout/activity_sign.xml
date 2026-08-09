@@ -210,6 +210,15 @@
                 android:maxLines="1" />
         </LinearLayout>
 
+        <!-- 拍照签到: 选图上传到云盘(普通签到 ifphoto=1 时显示) -->
+        <Button
+            android:id="@+id/btnPickPhoto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="📷 选择图片上传(拍照签到)"
+            android:visibility="gone" />
+
         <Button
             android:id="@+id/btnSign"
             android:layout_width="match_parent"

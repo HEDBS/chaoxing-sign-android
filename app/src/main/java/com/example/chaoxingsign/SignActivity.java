@@ -25,8 +25,9 @@ public class SignActivity extends AppCompatActivity {
     private LinearLayout panelCode, panelLocation, panelQrcode, panelGesture;
     private EditText etCode, etLat, etLon, etAddress, etEnc;
     private GestureView gestureView;
-    private Button btnSign;
+    private Button btnSign, btnPickPhoto;
     private String gestureCode = ""; // 画板手势编码(手势签到用)
+    private String uploadedObjectId = ""; // 拍照签到: 已上传图片的 objectId
 
     private ChaoxingApi api;
     private ChaoxingApi.SignActivity act; // 当前检测到的活动
@@ -62,6 +63,7 @@ public class SignActivity extends AppCompatActivity {
         tvGestureLoc = findViewById(R.id.tvGestureLoc);
         tvCodeLoc = findViewById(R.id.tvCodeLoc);
         btnSign = findViewById(R.id.btnSign);
+        btnPickPhoto = findViewById(R.id.btnPickPhoto);
 
         // 画板手势完成: 记录编码, 显示给用户确认
         gestureView.setOnGestureListener(code -> {
@@ -77,6 +79,13 @@ public class SignActivity extends AppCompatActivity {
         // 地图选点: 打开选点页, 返回坐标+地址自动回填
         findViewById(R.id.btnPickLocation).setOnClickListener(v ->
                 startActivityForResult(new android.content.Intent(this, LocationPickerActivity.class), 1001));
+
+        // 拍照签到: 选择图片→上传云盘→记录 objectId
+        btnPickPhoto.setOnClickListener(v ->
+                startActivityForResult(
+                        new android.content.Intent(android.content.Intent.ACTION_GET_CONTENT)
+                                .setType("image/*")
+                                .addCategory(android.content.Intent.CATEGORY_OPENABLE), 1002));
 
         // 返回课程列表
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
@@ -150,6 +159,11 @@ public class SignActivity extends AppCompatActivity {
         panelGesture.setVisibility(isGesture ? View.VISIBLE : View.GONE);
         panelLocation.setVisibility(otherId == 4 ? View.VISIBLE : View.GONE);
         panelQrcode.setVisibility(otherId == 2 ? View.VISIBLE : View.GONE);
+        // 拍照签到(otherId==0 且 ifphoto): 显示选图上传按钮
+        boolean isPhoto = false;
+        try { isPhoto = otherId == 0 && api.isPhotoSign(act.activeId); }
+        catch (Exception ignored) { }
+        btnPickPhoto.setVisibility(isPhoto ? View.VISIBLE : View.GONE);
 
         // 签到码: 自动聚焦数字键盘
         if (isCode) {
@@ -193,7 +207,7 @@ public class SignActivity extends AppCompatActivity {
         }
     }
 
-    /** 地图选点返回: 坐标+地址回填 */
+    /** 地图选点返回: 坐标+地址回填; 图片选择返回: 上传云盘拿 objectId */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -202,6 +216,49 @@ public class SignActivity extends AppCompatActivity {
             etLon.setText(data.getStringExtra("lon"));
             etAddress.setText(data.getStringExtra("address"));
             tvResult.setText("已从地图选择位置");
+        } else if (requestCode == 1002 && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            uploadSelectedImage(data.getData());
+        }
+    }
+
+    /** 读取所选图片 → 上传云盘 → 记录 objectId */
+    private void uploadSelectedImage(android.net.Uri uri) {
+        btnPickPhoto.setEnabled(false);
+        tvResult.setText("正在上传图片...");
+        new Thread(() -> {
+            try {
+                byte[] bytes = readUriBytes(uri);
+                String oid = api.uploadPhoto(bytes, "0.png");
+                if (oid == null || oid.isEmpty()) {
+                    runOnUiThread(() -> {
+                        tvResult.setText("上传失败, 请重试");
+                        btnPickPhoto.setEnabled(true);
+                    });
+                    return;
+                }
+                uploadedObjectId = oid;
+                runOnUiThread(() -> {
+                    tvResult.setText("✅ 图片已上传, 可点击签到");
+                    btnPickPhoto.setText("📷 已上传图片(可重新选择)");
+                    btnPickPhoto.setEnabled(true);
+                    btnSign.setEnabled(true);
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    tvResult.setText("上传异常: " + e.getMessage());
+                    btnPickPhoto.setEnabled(true);
+                });
+            }
+        }).start();
+    }
+
+    private byte[] readUriBytes(android.net.Uri uri) throws Exception {
+        try (java.io.InputStream is = getContentResolver().openInputStream(uri)) {
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = is.read(buf)) != -1) bos.write(buf, 0, n);
+            return bos.toByteArray();
         }
     }
 
@@ -258,8 +315,9 @@ public class SignActivity extends AppCompatActivity {
         switch (act.otherId) {
             case 0: // 普通/拍照
                 if (api.isPhotoSign(act.activeId)) {
-                    String oid = api.getObjectId();
-                    if (oid == null) return "云盘根目录未找到 0.jpg/0.png, 请先上传";
+                    String oid = uploadedObjectId;
+                    if (oid.isEmpty()) oid = api.getObjectId(); // 兜底: 云盘已有 0.png
+                    if (oid == null || oid.isEmpty()) return "请先点击「📷 选择图片上传」上传签到图片";
                     return api.signPhoto(act, oid);
                 }
                 return api.signGeneral(act);

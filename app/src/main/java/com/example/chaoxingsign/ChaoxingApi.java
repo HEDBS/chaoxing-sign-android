@@ -356,17 +356,17 @@ public class ChaoxingApi {
         return data != null && data.optInt("ifphoto", 0) == 1;
     }
 
-    /** 从云盘根目录找 0.jpg/0.png 的 objectId */
+    /** 从云盘根目录找 0.jpg/0.png 的 objectId (2026-08 新页面格式) */
     public String getObjectId() throws Exception {
-        String pan = get("https://pan-yz.chaoxing.com", false);
-        Matcher mEnc = Pattern.compile("enc =\"(.*?)\"").matcher(pan);
-        Matcher mRoot = Pattern.compile("_rootdir = \"(.*?)\"").matcher(pan);
-        if (!mEnc.find() || !mRoot.find()) return null;
-        String encVal = mEnc.group(1), parentId = mRoot.group(1);
-        String params = "puid=0&shareid=0&parentId=" + parentId + "&page=1&size=50&enc=" + encVal;
+        PanCreds c = panCreds();
+        if (c == null) return null;
+        String params = "puid=" + c.puid + "&shareid=0&parentId=" + c.rootdir
+                + "&page=1&size=50&enc=" + c.encstr + "&filterType=&orderField=&orderType=0";
         String json = post("https://pan-yz.chaoxing.com/opt/listres?" + params, params,
                 "application/x-www-form-urlencoded", false);
-        JSONArray list = new JSONObject(json).optJSONArray("list");
+        JSONObject d = new JSONObject(json);
+        if (d.optBoolean("success", true) == false) return null; // 显式 false 才失败
+        JSONArray list = d.optJSONArray("list");
         if (list == null) return null;
         for (int i = 0; i < list.length(); i++) {
             JSONObject f = list.getJSONObject(i);
@@ -376,9 +376,61 @@ public class ChaoxingApi {
         return null;
     }
 
+    /** 上传本地图片到云盘根目录, 返回 objectId (拍照签到: 选图→上传→signPhoto) */
+    public String uploadPhoto(byte[] data, String fileName) throws Exception {
+        PanCreds c = panCreds();
+        if (c == null) return null;
+        String url = "https://pan-yz.chaoxing.com/pcuserpanUpload/uploadUserFile"
+                + "?_token=" + c.token + "&puid=" + c.puid + "&fldid=" + c.rootdir;
+        String boundary = "----cx" + System.currentTimeMillis();
+        java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+        String head = "--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n"
+                + "Content-Type: image/png\r\n\r\n";
+        bos.write(head.getBytes("UTF-8"));
+        bos.write(data);
+        String foot = "\r\n--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"fn\"\r\n\r\n" + fileName + "\r\n"
+                + "--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"fldid\"\r\n\r\n" + c.rootdir + "\r\n"
+                + "--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"_token\"\r\n\r\n" + c.token + "\r\n"
+                + "--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"prdid\"\r\n\r\n-1\r\n"
+                + "--" + boundary + "--\r\n";
+        bos.write(foot.getBytes("UTF-8"));
+        String json = request(url, "POST", bos.toByteArray(),
+                "multipart/form-data; boundary=" + boundary, false);
+        JSONObject d = new JSONObject(json);
+        if (d.optBoolean("result")) {
+            return d.optJSONObject("data").optString("objectId");
+        }
+        return null;
+    }
+
+    /** 云盘凭据: 抓 upload 页面拿 token/rootdir/puid/fid/encstr */
+    private static class PanCreds {
+        String token, rootdir, puid, fid, encstr;
+    }
+
+    private PanCreds panCreds() throws Exception {
+        String pan = get("https://pan-yz.chaoxing.com/pcuserpan/upload?bigFile=false"
+                + "&yunpanFidEnc=&barrierFree=false&isSuperstarfirefly=false", false);
+        PanCreds c = new PanCreds();
+        Matcher mT = Pattern.compile("const _token = \"([^\"]+)\"").matcher(pan);
+        Matcher mR = Pattern.compile("const rootdir = \"([^\"]+)\"").matcher(pan);
+        Matcher mP = Pattern.compile("const currentPuid = \"([^\"]+)\"").matcher(pan);
+        Matcher mF = Pattern.compile("const currentFid = \"([^\"]+)\"").matcher(pan);
+        Matcher mE = Pattern.compile("const encstr = \"([^\"]+)\"").matcher(pan);
+        if (!mT.find() || !mR.find() || !mP.find() || !mF.find() || !mE.find()) return null;
+        c.token = mT.group(1); c.rootdir = mR.group(1); c.puid = mP.group(1);
+        c.fid = mF.group(1); c.encstr = mE.group(1);
+        return c;
+    }
+
     // ============ HTTP 工具 ============
     private String get(String url, boolean acceptJson) throws Exception {
-        return request(url, "GET", null, null, acceptJson);
+        return request(url, "GET", (String) null, null, acceptJson);
     }
 
     private HttpURLConnection openPost(String url, String form, String contentType, boolean withHeader) throws Exception {
@@ -394,6 +446,18 @@ public class ChaoxingApi {
 
     private String request(String url, String method, String form, String contentType, boolean acceptJson) throws Exception {
         HttpURLConnection conn = open(url, method, form, contentType, acceptJson);
+        String body = readBody(conn);
+        conn.disconnect();
+        return body;
+    }
+
+    /** byte[] body 版 (multipart 上传用) */
+    private String request(String url, String method, byte[] data, String contentType, boolean acceptJson) throws Exception {
+        HttpURLConnection conn = open(url, method, (String) null, contentType, acceptJson);
+        conn.setDoOutput(true);
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(data);
+        }
         String body = readBody(conn);
         conn.disconnect();
         return body;
